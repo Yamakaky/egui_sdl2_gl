@@ -15,7 +15,7 @@ include = ["**/*.rs", "Cargo.toml"]
 
 [dependencies]
 egui = "0.15.0"
-sdl2 = "0.34.5"
+sdl2 = "0.35.0"
 
 [dependencies.gl]
 version = "0.14.0"
