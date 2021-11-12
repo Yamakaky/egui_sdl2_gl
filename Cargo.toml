@@ -14,12 +14,9 @@ include = ["**/*.rs", "Cargo.toml"]
 # build = "build.rs"
 
 [dependencies]
+gl = "0.14.0"
 egui = "0.15.0"
 sdl2 = "0.35.0"
-
-[dependencies.gl]
-version = "0.14.0"
-optional = true
 
 [dependencies.copypasta]
 version = "0.7"

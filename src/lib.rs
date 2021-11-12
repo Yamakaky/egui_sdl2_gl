@@ -3,16 +3,10 @@
 
 // Re-export dependencies.
 pub use egui;
-#[cfg(feature = "gl")]
 pub use gl;
 pub use sdl2;
-
-#[cfg(feature = "gl")]
 pub mod painter;
-
-#[cfg(feature = "gl")]
 use painter::Painter;
-
 use {
     egui::*,
     sdl2::{
