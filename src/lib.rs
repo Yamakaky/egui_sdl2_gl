@@ -3,9 +3,12 @@
 
 // Re-export dependencies.
 pub use egui;
+#[cfg(feature = "gl")]
 pub use gl;
 pub use sdl2;
+#[cfg(feature = "gl")]
 pub mod painter;
+#[cfg(feature = "gl")]
 use painter::Painter;
 use {
     egui::*,
@@ -61,6 +64,7 @@ pub struct EguiStateHandler {
     pub modifiers: Modifiers,
 }
 
+#[cfg(feature = "gl")]
 pub fn with_sdl2(window: &sdl2::video::Window, scale: DpiScaling) -> (Painter, EguiStateHandler) {
     let scale = match scale {
         DpiScaling::Default => 96.0 / window.subsystem().display_dpi(0).unwrap().0,
@@ -72,22 +76,37 @@ pub fn with_sdl2(window: &sdl2::video::Window, scale: DpiScaling) -> (Painter, E
     EguiStateHandler::new(painter)
 }
 
+#[cfg(not(feature = "gl"))]
+pub fn with_sdl2(window: &sdl2::video::Window, scale: DpiScaling) -> EguiStateHandler {
+    let scale = match scale {
+        DpiScaling::Default => 96.0 / window.subsystem().display_dpi(0).unwrap().0,
+        DpiScaling::Custom(custom) => {
+            (96.0 / window.subsystem().display_dpi(0).unwrap().0) * custom
+        }
+    };
+    let (width, height) = window.size();
+    let pixels_per_point = scale;
+    let rect = vec2(width as f32, height as f32) / pixels_per_point;
+    let screen_rect = Rect::from_min_size(Pos2::new(0f32, 0f32), rect);
+    EguiStateHandler::new(pixels_per_point, screen_rect)
+}
+
 impl EguiStateHandler {
-    pub fn new(painter: Painter) -> (Painter, EguiStateHandler) {
-        let _self = EguiStateHandler {
+    pub fn new(pixels_per_point: f32, rect: Rect) -> EguiStateHandler {
+        EguiStateHandler {
             fused_cursor: FusedCursor::default(),
             pointer_pos: Pos2::new(0f32, 0f32),
             clipboard: init_clipboard(),
             input: egui::RawInput {
-                screen_rect: Some(painter.screen_rect),
-                pixels_per_point: Some(painter.pixels_per_point),
+                screen_rect: Some(rect),
+                pixels_per_point: Some(pixels_per_point),
                 ..Default::default()
             },
             modifiers: Modifiers::default(),
-        };
-        (painter, _self)
+        }
     }
 
+    #[cfg(feature = "gl")]
     pub fn process_input(
         &mut self,
         window: &sdl2::video::Window,
@@ -95,6 +114,17 @@ impl EguiStateHandler {
         painter: &mut Painter,
     ) {
         input_to_egui(window, event, painter, self);
+    }
+
+    #[cfg(not(feature = "gl"))]
+    pub fn process_input(
+        &mut self,
+        window: &sdl2::video::Window,
+        event: sdl2::event::Event,
+        pixels_per_point: f32,
+        rect: Rect,
+    ) {
+        input_to_egui(window, event, pixels_per_point, rect, self);
     }
 
     pub fn process_output(&mut self, egui_output: &egui::Output) {
@@ -108,11 +138,14 @@ impl EguiStateHandler {
 pub fn input_to_egui(
     window: &sdl2::video::Window,
     event: sdl2::event::Event,
-    painter: &mut Painter,
+    #[cfg(feature = "gl")] painter: &mut Painter,
+    #[cfg(not(feature = "gl"))] pixels_per_point: f32,
+    #[cfg(not(feature = "gl"))] rect: Rect,
     state: &mut EguiStateHandler,
 ) {
     use sdl2::event::Event::*;
 
+    #[cfg(feature = "gl")]
     let pixels_per_point = painter.pixels_per_point;
     if event.get_window_id() != Some(window.id()) {
         return;
@@ -120,9 +153,14 @@ pub fn input_to_egui(
     match event {
         // handle when window Resized and SizeChanged.
         Window { win_event, .. } => match win_event {
+            #[cfg(feature = "gl")]
             WindowEvent::Resized(_, _) | sdl2::event::WindowEvent::SizeChanged(_, _) => {
                 painter.update_screen_rect(window.drawable_size());
                 state.input.screen_rect = Some(painter.screen_rect);
+            }
+            #[cfg(not(feature = "gl"))]
+            WindowEvent::Resized(_, _) | sdl2::event::WindowEvent::SizeChanged(_, _) => {
+                state.input.screen_rect = Some(rect);
             }
             _ => (),
         },
